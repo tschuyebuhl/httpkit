@@ -65,7 +65,7 @@ func (l *Logger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	i := &Interceptor{ResponseWriter: w}
 	start := time.Now()
 	id := uuid.Must(uuid.NewV4())
-	l.logger.Info("handling http request", "method", r.Method, "path", r.URL.Path, "id", id.String())
+	l.logger.Info("handling http request", "method", r.Method, "path", r.URL.Path, "request_id", id.String())
 	ctx := context.WithValue(r.Context(), ctxKeyRequestID{}, id)
 	r = r.WithContext(ctx)
 
@@ -75,7 +75,7 @@ func (l *Logger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			l.panicHandler(i, r, rec, stack)
 		}
 		status := i.Status()
-		l.logger.Info("handled http request", "method", r.Method, "path", r.URL.Path, "time", time.Since(start), "response code", status, "id", id.String())
+		l.logger.Info("handled http request", "method", r.Method, "path", r.URL.Path, "time", time.Since(start), "response code", status, "request_id", id.String())
 	}()
 
 	l.handler.ServeHTTP(i, r)
