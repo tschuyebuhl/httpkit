@@ -1,13 +1,18 @@
 package httpx
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"runtime/debug"
 	"time"
+
+	"github.com/gofrs/uuid/v5"
 )
+
+type ctxKeyRequestID struct{}
 
 type PanicHandler func(w http.ResponseWriter, r *http.Request, recovered any, stack []byte)
 
@@ -59,6 +64,10 @@ func NewLogger(handler http.Handler, opts ...LoggerOption) *Logger {
 func (l *Logger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	i := &Interceptor{ResponseWriter: w}
 	start := time.Now()
+	id := uuid.Must(uuid.NewV4())
+	l.logger.Info("handling http request", "method", r.Method, "path", r.URL.Path, "id", id.String())
+	ctx := context.WithValue(r.Context(), ctxKeyRequestID{}, id)
+	r = r.WithContext(ctx)
 
 	defer func() {
 		if rec := recover(); rec != nil {
@@ -66,7 +75,7 @@ func (l *Logger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			l.panicHandler(i, r, rec, stack)
 		}
 		status := i.Status()
-		l.logger.Info("handled http request", "method", r.Method, "path", r.URL.Path, "time", time.Since(start), "response code", status)
+		l.logger.Info("handled http request", "method", r.Method, "path", r.URL.Path, "time", time.Since(start), "response code", status, "id", id.String())
 	}()
 
 	l.handler.ServeHTTP(i, r)
@@ -118,4 +127,21 @@ func (l *Interceptor) Status() int {
 
 func (l *Interceptor) HasWritten() bool {
 	return l.wroteHeader
+}
+
+func RequestID(ctx context.Context) (uuid.UUID, bool) {
+	v := ctx.Value(ctxKeyRequestID{})
+	if v == nil {
+		return uuid.UUID{}, false
+	}
+	id, ok := v.(uuid.UUID)
+	return id, ok
+}
+
+func RequestIDString(ctx context.Context) (string, bool) {
+	id, ok := RequestID(ctx)
+	if !ok {
+		return "", false
+	}
+	return id.String(), true
 }

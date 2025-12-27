@@ -91,6 +91,72 @@ Request logging with panic recovery:
 logged := httpx.NewLogger(handler)
 ```
 
+This suffices for basic logging. This will also inject a request ID into the context. One can extract it like so:
+```go
+package config
+
+import (
+	"context"
+	"log/slog"
+	"os"
+
+	"github.com/tschuyebuhl/httpkit/httpx"
+)
+
+type RequestIDHandler struct {
+	next slog.Handler
+}
+
+func (h RequestIDHandler) Enabled(ctx context.Context, lvl slog.Level) bool {
+	return h.next.Enabled(ctx, lvl)
+}
+
+func (h RequestIDHandler) Handle(ctx context.Context, r slog.Record) error {
+	if rid, ok := httpx.RequestIDString(ctx); ok {
+		r.AddAttrs(slog.String("request_id", rid))
+	}
+	return h.next.Handle(ctx, r)
+}
+
+func (h RequestIDHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return RequestIDHandler{next: h.next.WithAttrs(attrs)}
+}
+
+func (h RequestIDHandler) WithGroup(name string) slog.Handler {
+	return RequestIDHandler{next: h.next.WithGroup(name)}
+}
+
+func LoggerSetup(cfg Log) {
+	var base slog.Handler
+	var logLevel slog.Level
+	switch cfg.Level {
+	case "debug":
+		logLevel = slog.LevelDebug
+	case "info":
+		logLevel = slog.LevelInfo
+	case "warn":
+		logLevel = slog.LevelWarn
+	case "error":
+		logLevel = slog.LevelError
+	default:
+		slog.Error("unknown log level", "level", cfg.Level)
+		logLevel = slog.LevelInfo
+	}
+	opts := &slog.HandlerOptions{
+		Level:     logLevel,
+		AddSource: true,
+	}
+	switch cfg.OutputFormat {
+	case "json":
+		base = slog.NewJSONHandler(os.Stdout, opts)
+	case "text":
+		base = slog.NewTextHandler(os.Stdout, opts)
+	}
+	logger := slog.New(RequestIDHandler{next: base})
+	slog.SetDefault(logger)
+}
+```
+
 SPA fallback for embedded or static file servers:
 
 ```go
@@ -146,7 +212,8 @@ func NewHTTPServer(appConfig config.App, httpConfig config.Web, auth httpx.Middl
 		httpx.Use(attributes, auth),
 		health,
 	)
-	handler := httpx.Chain(baseMux, middleware.QueryParams, httpx.LoggerMiddleware())
+	logger := httpx.NewLogger(baseMux)
+	handler := httpx.Chain(logger, middleware.QueryParams)
 
 	return &HTTPServer{
 		Server: &http.Server{

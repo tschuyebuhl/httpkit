@@ -4,6 +4,7 @@ go 1.25.4
 
 require (
 	github.com/coreos/go-oidc/v3 v3.15.0
+	github.com/gofrs/uuid/v5 v5.4.0
 	github.com/stephenafamo/bob v0.41.1
 	golang.org/x/text v0.29.0
 )
