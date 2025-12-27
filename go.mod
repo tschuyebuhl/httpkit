@@ -1,4 +1,4 @@
-module github.com/tschuyebuhl/aids
+module github.com/tschuyebuhl/httpkit
 
 go 1.25.4
 

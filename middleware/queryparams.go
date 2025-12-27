@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tschuyebuhl/aids/data"
+	"github.com/tschuyebuhl/httpkit/data"
 )
 
 type queryParamsKey struct{}

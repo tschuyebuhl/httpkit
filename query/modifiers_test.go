@@ -9,7 +9,7 @@ import (
 
 	"github.com/stephenafamo/bob/dialect/psql"
 	"github.com/stephenafamo/bob/dialect/psql/sm"
-	"github.com/tschuyebuhl/aids/userctx"
+	"github.com/tschuyebuhl/httpkit/userctx"
 )
 
 func TestUserIDModifier(t *testing.T) {

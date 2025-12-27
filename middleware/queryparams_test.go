@@ -4,7 +4,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/tschuyebuhl/aids/data"
+	"github.com/tschuyebuhl/httpkit/data"
 )
 
 func TestParseQueryParamsFilters(t *testing.T) {

@@ -12,7 +12,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/coreos/go-oidc/v3/oidc/oidctest"
-	"github.com/tschuyebuhl/aids/userctx"
+	"github.com/tschuyebuhl/httpkit/userctx"
 )
 
 func TestKeycloakRequiresAuthorization(t *testing.T) {

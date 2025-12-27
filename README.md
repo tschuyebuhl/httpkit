@@ -1,11 +1,11 @@
-# aids
+# httpkit
 
 Small helpers for building Go HTTP APIs: request logging, SPA fallbacks, Keycloak auth, query param parsing, and a few data/query utilities.
 
 ## Install
 
 ```sh
-go get github.com/tschuyebuhl/aids
+go get github.com/tschuyebuhl/httpkit
 ```
 
 ## HTTP middleware
@@ -113,9 +113,8 @@ _ = slug
 Apply user scoping in bob queries:
 
 ```go
-mods := []bob.Mod[*dialect.SelectQuery]{
-    query.UserIDModifier(ctx),
-}
+habit, err := models.Habits.Query(models.SelectWhere.Habits.Code.EQ(domainModel.HabitCode), query.UserIDModifier(ctx),
+		sm.Columns(dbinfo.Habits.Columns.ID.Name)).One(ctx, p.db)
 ```
 
 ## Full server wiring example
@@ -126,39 +125,40 @@ var (
     embeddedFS embed.FS
 )
 
-func routes(devMode bool, provider *oidc.Provider) http.Handler {
-    mux := http.NewServeMux()
+func NewHTTPServer(appConfig config.App, httpConfig config.Web, auth httpx.Middleware,
+	habits *routers.HabitRouter, groups *routers.HabitGroupRouter,
+	logs *routers.HabitLogRouter, streaks *routers.HabitStreakRouter,
+	attributes *routers.HabitAttributeDefinitionRouter,
+	health *routers.HealthRouter) *HTTPServer {
+	slog.Info("creating new server instance", "listening addr", httpConfig.Addr)
 
-    if devMode {
-        proxyURL, _ := url.Parse("http://localhost:5173")
-        mux.Handle("/", httputil.NewSingleHostReverseProxy(proxyURL))
-    } else {
-        frontend, _ := fs.Sub(embeddedFS, "frontend/dist")
-        httpFS := http.FS(frontend)
-        fileServer := http.FileServer(httpFS)
-        serveIndex := httpx.ServeFileContents("index.html", httpFS)
-        mux.Handle("/", httpx.Intercept404(fileServer, serveIndex))
-    }
+	baseMux := http.NewServeMux()
+	if appConfig.DevMode {
+		baseMux.Handle("/", httpx.DevProxy(appConfig.FrontendAddress))
+	} else {
+		httpx.RunEmbeddedApp("/", embeddedFS, baseMux)
+	}
+	httpx.Register(baseMux,
+		httpx.Use(habits, auth),
+		httpx.Use(groups, auth),
+		httpx.Use(logs, auth),
+		httpx.Use(streaks, auth),
+		httpx.Use(attributes, auth),
+		health,
+	)
+	handler := httpx.Chain(baseMux, middleware.QueryParams, httpx.LoggerMiddleware())
 
-    health := httpx.Routes(httpx.Route{
-        Pattern: "GET /health",
-        Handler: func(w http.ResponseWriter, r *http.Request) {
-            w.WriteHeader(http.StatusOK)
-        },
-    })
-    habits := &HabitRouter{} // implements httpx.Routable
-
-    auth := middleware.NewKeycloak(provider)
-    api := httpx.Use(habits, auth.Middleware())
-
-    httpx.Register(mux, api, health)
-
-    return httpx.Chain(
-        mux,
-        middleware.QueryParams,
-        httpx.LoggerMiddleware(),
-    )
+	return &HTTPServer{
+		Server: &http.Server{
+			Addr:         httpConfig.Addr,
+			Handler:      handler,
+			TLSConfig:    nil,
+			ReadTimeout:  10 * time.Second,
+			WriteTimeout: 20 * time.Second,
+		},
+	}
 }
+
 ```
 
 ## Tests
@@ -168,4 +168,4 @@ go test ./...
 ```
 
 ## License
-This project is licensed via the MIT README.
+This project is licensed under the [MIT License](./LICENSE)

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/tschuyebuhl/aids/userctx"
+	"github.com/tschuyebuhl/httpkit/userctx"
 )
 
 type Keycloak struct {

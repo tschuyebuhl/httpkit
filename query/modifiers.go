@@ -3,7 +3,7 @@ package query
 import (
 	"context"
 
-	"github.com/tschuyebuhl/aids/userctx"
+	"github.com/tschuyebuhl/httpkit/userctx"
 
 	"github.com/stephenafamo/bob"
 	"github.com/stephenafamo/bob/dialect/psql"
